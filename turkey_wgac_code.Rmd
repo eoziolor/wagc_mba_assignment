@@ -1,0 +1,140 @@
+---
+title: "turkey_wagc"
+author: "Oziolor"
+date: "2/6/2022"
+output: html_document
+---
+
+# Loading files
+
+```{r}
+library(tidyverse)
+library(wwmetrics)
+library(data.table)
+library(reshape2)
+
+efree<-rbind(fread("data/am_efree.csv") %>% mutate(region = "Americas"),
+  fread("data/eur_efree.csv") %>% mutate(region = "Europe"),
+  fread("data/asia_efree.csv") %>% mutate(region = "Asia"),
+  fread("data/menaf_efree.csv") %>% mutate(region = "MidEas/NorAf"),
+  fread("data/soaf_efree.csv") %>% mutate(region = "SoAf")) %>% 
+  mutate(`Overall Score` = as.numeric(`Overall Score`))
+
+lpi <- read_csv("data/lpi_all.csv") %>% 
+  melt(variable.name = "year") %>% 
+  mutate(value = as.numeric(value)) %>% 
+  left_join(efree %>% select(Name, region))
+
+gpi <- read_csv("data/gpi_all.csv")
+```
+
+# Economic freedom index
+
+```{r}
+ggplot(efree,
+       aes(x = `Index Year`, y = `Overall Score`, 
+           color = region, group = Name))+
+  geom_line(alpha = 0.3, size = 0.5)+
+  #geom_smooth(group = "region", method = "loess")+
+  geom_line(data = efree %>% filter(Name == "Turkey"),
+            aes(x = `Index Year`, y = `Overall Score`), 
+            color = "grey10", size = 1)+
+  geom_line(data = efree %>% filter(Name == "United States"),
+            aes(x = `Index Year`, y = `Overall Score`), 
+            color = "deepskyblue3", size = 1)+
+  geom_line(data = efree %>% filter(Name == "China"),
+            aes(x = `Index Year`, y = `Overall Score`), 
+            color = "firebrick", size = 1)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()
+
+ggplot(efree %>% filter(`Index Year`==2021),
+       aes(x = region, y = `Overall Score`,
+           color = region))+
+  geom_violin()+
+  geom_jitter(width = 0.1)+
+  geom_point(data = efree %>% filter(`Index Year` == 2021 & Name == "Turkey"),
+             aes(x = region, y = `Overall Score`), 
+             color = "black", size = 3)+
+  geom_hline(data = efree %>% filter(`Index Year` == 2021 & Name == "United States"),
+             aes(yintercept = `Overall Score`), 
+             color = "deepskyblue3", size = 1, lty = 2, alpha = 0.5)+
+  geom_hline(data = efree %>% filter(`Index Year` == 2021 & Name == "China"),
+             aes(yintercept = `Overall Score`), 
+             color = "firebrick", size = 1, lty = 2, alpha = .5)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()
+
+# Extracting Turkey and melting
+efree.tu <- efree %>% filter(Name == "Turkey") %>% select(-region)
+mefree.tu <- melt(efree.tu,id.vars = c("Name","Index Year"),
+                  variable.name = "score.type", value.name = "score") %>%
+  mutate(score = as.numeric(score))
+
+ggplot(mefree.tu %>% filter(score.type != "Overall Score"),
+       aes(x = `Index Year`, y = score, color = score.type, group = score.type))+
+  geom_smooth(lwd = 1.5, se = FALSE)+
+  scale_color_brewer(palette = "Set3")+
+  theme_bw()
+
+```
+
+# Logistics performance index
+
+```{r}
+ggplot(lpi %>% filter(`Indicator Code` == "LP.LPI.OVRL.XQ"),
+       aes(x = year, y = value, 
+           color = region, group = Name))+
+  geom_line(alpha = 0.3, size = 0.5)+
+  #geom_smooth(group = "region", method = "loess")+
+  geom_line(data = lpi %>% 
+              filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
+              filter(Name == "Turkey"),
+            aes(x = year, y = value), 
+            color = "grey10", size = 1)+
+  geom_line(data = lpi %>% 
+              filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
+              filter(Name == "United States"),
+            aes(x = year, y = value), 
+            color = "deepskyblue3", size = 1)+
+  geom_line(data = lpi %>% 
+              filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
+              filter(Name == "China"),
+            aes(x = year, y = value), 
+            color = "firebrick", size = 1)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()
+
+ggplot(lpi %>% 
+         filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
+         filter(year==2018),
+       aes(x = region, y = value, color = region))+
+  geom_violin()+
+  geom_jitter(width = 0.1)+
+  geom_point(data = lpi %>% 
+               filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
+               filter(year == 2018 & Name == "Turkey"),
+             aes(x = region, y = value), 
+             color = "black", size = 3)+
+  geom_hline(data = lpi %>% 
+               filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
+               filter(year == 2018 & Name == "United States"),
+             aes(yintercept = value), 
+             color = "deepskyblue3", size = 1, lty = 2, alpha = 0.5)+
+  geom_hline(data = lpi %>% 
+               filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
+               filter(year == 2018 & Name == "China"),
+             aes(yintercept = value), 
+             color = "firebrick", size = 1, lty = 2, alpha = .5)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()
+
+# Extracting Turkey and melting
+lpi.tu <- lpi %>% filter(Name == "Turkey") %>% select(-region)
+
+ggplot(lpi.tu %>% filter(!`Indicator Code` %like% "RK"),
+       aes(x =  year, y = value, color = `Indicator Code`, group = `Indicator Code`))+
+  geom_smooth(lwd = 1.5, se = FALSE)+
+  #scale_color_brewer(palette = "Set3")+
+  theme_bw()
+```
