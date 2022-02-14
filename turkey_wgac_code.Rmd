@@ -12,20 +12,45 @@ library(tidyverse)
 library(wwmetrics)
 library(data.table)
 library(reshape2)
+library(ggridges)
+library(viridis)
+library(Rtsne)
+library(ggrepel)
 
 efree<-rbind(fread("data/am_efree.csv") %>% mutate(region = "Americas"),
   fread("data/eur_efree.csv") %>% mutate(region = "Europe"),
   fread("data/asia_efree.csv") %>% mutate(region = "Asia"),
   fread("data/menaf_efree.csv") %>% mutate(region = "MidEas/NorAf"),
-  fread("data/soaf_efree.csv") %>% mutate(region = "SoAf")) %>% 
-  mutate(`Overall Score` = as.numeric(`Overall Score`))
+  fread("data/soaf_efree.csv") %>% mutate(region = "SoAf"))
+
+efree.n<-sapply(efree %>% select(-Name,-`Index Year`,-region ),as.numeric)
+efree <- cbind(efree %>% 
+                 select(Name, `Index Year`, region),
+               efree.n)
 
 lpi <- read_csv("data/lpi_all.csv") %>% 
   melt(variable.name = "year") %>% 
   mutate(value = as.numeric(value)) %>% 
   left_join(efree %>% select(Name, region))
 
-gpi <- read_csv("data/gpi_all.csv")
+gci <- read_csv("data/gpi_all.csv") %>% 
+  melt(id.vars = c("Country ISO3","Name","Indicator Id", "Indicator", "Subindicator Type"),
+       variable.name = "year") %>% 
+  mutate(value = as.numeric(value)) %>% 
+  #mutate(year = as.numeric(year)) %>% 
+  left_join(efree %>% select(Name, region))
+
+# Loading Hofstede
+# data(Hofstede)
+# 
+# hof <- Hofstede %>% 
+#   left_join(gci %>% select(Country=`Country ISO3`, Name, region) %>% unique())
+# write.csv(na.omit(hof),"data/hof.csv")
+
+hof <- read_csv("data/hof.csv") %>% 
+  select(-"...1") %>% 
+  melt()
+
 ```
 
 # Economic freedom index
@@ -46,7 +71,13 @@ ggplot(efree,
             aes(x = `Index Year`, y = `Overall Score`), 
             color = "firebrick", size = 1)+
   scale_color_brewer(palette = "Set2")+
-  theme_bw()
+  theme_bw()+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+  ylab("Economic freedom index")+
+  xlab("")
 
 ggplot(efree %>% filter(`Index Year`==2021),
        aes(x = region, y = `Overall Score`,
@@ -63,7 +94,13 @@ ggplot(efree %>% filter(`Index Year`==2021),
              aes(yintercept = `Overall Score`), 
              color = "firebrick", size = 1, lty = 2, alpha = .5)+
   scale_color_brewer(palette = "Set2")+
-  theme_bw()
+  theme_bw()+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+  ylab("Economic freedom index")+
+  xlab("")
 
 # Extracting Turkey and melting
 efree.tu <- efree %>% filter(Name == "Turkey") %>% select(-region)
@@ -75,14 +112,19 @@ ggplot(mefree.tu %>% filter(score.type != "Overall Score"),
        aes(x = `Index Year`, y = score, color = score.type, group = score.type))+
   geom_smooth(lwd = 1.5, se = FALSE)+
   scale_color_brewer(palette = "Set3")+
-  theme_bw()
-
+  theme_bw()+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 0))+
+  ylab("Economic freedom index")+
+  xlab("")
 ```
 
 # Logistics performance index
 
 ```{r}
-ggplot(lpi %>% filter(`Indicator Code` == "LP.LPI.OVRL.XQ"),
+ggplot(na.omit(lpi) %>% filter(`Indicator Code` == "LP.LPI.OVRL.XQ"),
        aes(x = year, y = value, 
            color = region, group = Name))+
   geom_line(alpha = 0.3, size = 0.5)+
@@ -103,13 +145,21 @@ ggplot(lpi %>% filter(`Indicator Code` == "LP.LPI.OVRL.XQ"),
             aes(x = year, y = value), 
             color = "firebrick", size = 1)+
   scale_color_brewer(palette = "Set2")+
-  theme_bw()
+  theme_bw()+
+  theme(axis.text = element_text(size = 15),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+  ylab("Logistics performance index")+
+  xlab("")
 
-ggplot(lpi %>% 
+
+ggplot(na.omit(lpi) %>% 
          filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
-         filter(year==2018),
+         filter(year==2018) %>% 
+         unique(),
        aes(x = region, y = value, color = region))+
-  geom_violin()+
+  geom_violin(draw_quantiles = 0.5)+
   geom_jitter(width = 0.1)+
   geom_point(data = lpi %>% 
                filter(`Indicator Code` == "LP.LPI.OVRL.XQ") %>% 
@@ -127,7 +177,13 @@ ggplot(lpi %>%
              aes(yintercept = value), 
              color = "firebrick", size = 1, lty = 2, alpha = .5)+
   scale_color_brewer(palette = "Set2")+
-  theme_bw()
+  theme_bw()+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+  ylab("Logistics performance index")+
+  xlab("")
 
 # Extracting Turkey and melting
 lpi.tu <- lpi %>% filter(Name == "Turkey") %>% select(-region)
@@ -136,5 +192,333 @@ ggplot(lpi.tu %>% filter(!`Indicator Code` %like% "RK"),
        aes(x =  year, y = value, color = `Indicator Code`, group = `Indicator Code`))+
   geom_smooth(lwd = 1.5, se = FALSE)+
   #scale_color_brewer(palette = "Set3")+
-  theme_bw()
+  theme_bw()+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+  ylab("Logistics performance index")+
+  xlab("")
+```
+
+# Global competitiveness index
+
+```{r}
+ggplot(na.omit(gci) %>% 
+         filter(`Indicator` == "GCI 4.0: Global Competitiveness Index 4.0") %>% 
+         filter(`Subindicator Type` == "Rank") %>% 
+         filter(year == 2019) %>% 
+         unique(),
+       aes(x = region, y = value, color = region))+
+  geom_violin(draw_quantiles = 0.5)+
+  geom_jitter(width = 0.1)+
+  geom_point(data = na.omit(gci) %>% 
+               filter(`Indicator` == "GCI 4.0: Global Competitiveness Index 4.0") %>% 
+               filter(`Subindicator Type` == "Rank") %>%  
+               filter(year == 2019 & Name == "Turkey"),
+             aes(x = region, y = value), 
+             color = "black", size = 3)+
+  geom_hline(data = na.omit(gci) %>% 
+               filter(`Indicator` == "GCI 4.0: Global Competitiveness Index 4.0") %>%
+               filter(`Subindicator Type` == "Rank") %>% 
+               filter(year == 2019 & Name == "United States"),
+             aes(yintercept = value), 
+             color = "deepskyblue3", size = 1, lty = 2, alpha = 0.5)+
+  geom_hline(data = na.omit(gci) %>% 
+               filter(`Indicator` == "GCI 4.0: Global Competitiveness Index 4.0") %>% 
+               filter(`Subindicator Type` == "Rank") %>% 
+               filter(year == 2019 & Name == "China"),
+             aes(yintercept = value), 
+             color = "firebrick", size = 1, lty = 2, alpha = .5)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+  ylab("Global competitiveness index")+
+  xlab("")
+
+```
+
+# Hofstede
+
+```{r}
+ggplot(hof %>% filter(region %in% c("Asia","Americas","Europe")),
+       aes(x = value, y = region, color = region))+
+  geom_violin(draw_quantiles = 0.5)+
+  geom_jitter(width = 0.1)+
+  geom_vline(data = hof %>% filter(Name == "Turkey"),
+            aes(xintercept = value), color = "black", lwd = 2, alpha = .5)+
+  geom_vline(data = hof %>% filter(Name == "United States"),
+            aes(xintercept = value), color = "deepskyblue3", lwd = 2, alpha = .5)+
+  geom_vline(data = hof %>% filter(Name == "China"),
+            aes(xintercept = value), color = "firebrick", lwd = 2, alpha = .5)+
+  facet_wrap(.~variable)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20),
+        strip.text = element_text(size = 10))+
+  ylab("Global competitiveness index")+
+  xlab("")
+```
+
+
+# tSNE playground
+## Efree
+
+```{r}
+# Data cast
+efree.c <- efree %>%
+  filter(`Index Year` == 2021) %>% 
+  drop_na() %>%
+  mutate(ID = row_number()) 
+
+# Extracting meta
+efree_meta <- efree.c %>%
+  select(ID,Name,region)
+
+# Running tsne
+efree_fit <- efree.c %>%
+  select(-Name, - region,-`Index Year`) %>%
+  column_to_rownames("ID") %>%
+  scale() %>% 
+  Rtsne(dims = 2, perplexity = 15)
+
+# Grabbing coords
+efree_df <- efree_fit$Y %>% 
+  as.data.frame() %>%
+  rename(tSNE1="V1",
+         tSNE2="V2") %>%
+  mutate(ID=row_number()) %>% 
+  inner_join(efree_meta, by="ID")
+
+# Plotting
+efree_df %>%
+  ggplot(aes(x = tSNE1, 
+             y = tSNE2,
+             color = region))+
+  geom_point(cex = 3, alpha = .8)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()+
+  geom_label_repel(data = efree_df %>% 
+                     filter(tSNE1 < 4 & tSNE1 > 0) %>%
+                     filter(tSNE2 < 4 & tSNE2 > 0) %>% 
+                     rbind(efree_df %>% filter(Name %in% c("United States","China"))),
+    aes(label = Name),
+                  box.padding   = 0.5, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50', show.legend = FALSE) +
+  theme(legend.position="right")+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))
+```
+
+## LPI
+
+```{r}
+# Data cast
+lpi.c <- lpi %>% 
+  filter(!`Indicator Code` %like% "RK") %>% 
+  filter(year == 2018) %>% 
+  unique() %>% 
+  dcast(Name+region~`Indicator Code`) %>%
+  drop_na() %>%
+  mutate(ID = row_number()) 
+
+# Extracting meta
+lpi_meta <- lpi.c %>%
+  select(ID,Name,region)
+
+# Running tsne
+lpi_fit <- lpi.c %>%
+  select(-Name, - region) %>%
+  column_to_rownames("ID") %>%
+  scale() %>% 
+  Rtsne(dims = 2, perplexity = 30)
+
+# Grabbing coords
+lpi_df <- lpi_fit$Y %>% 
+  as.data.frame() %>%
+  rename(tSNE1="V1",
+         tSNE2="V2") %>%
+  mutate(ID=row_number()) %>% 
+  inner_join(lpi_meta, by="ID")
+
+# Plotting
+lpi_df %>%
+  ggplot(aes(x = tSNE1, 
+             y = tSNE2,
+             color = region))+
+  geom_point(cex = 3, alpha = .8)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()+
+  geom_label_repel(data = lpi_df %>% 
+                     filter(tSNE1 < 5 & tSNE1 > 3) %>%
+                     filter(tSNE2 < -.3 & tSNE2 > -.7) %>% 
+                     rbind(lpi_df %>% filter(Name %in% c("United States","China"))),
+    aes(label = Name),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50', show.legend = FALSE) +
+  theme(legend.position="bottom")+
+  theme(axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 15))
+```
+
+## GCI
+
+```{r}
+# Data cast
+gci.c <- gci %>% 
+  filter(`Subindicator Type` == "Value") %>% 
+  filter(year == 2019) %>% 
+  unique() %>% 
+  na.omit() %>% 
+  dcast(Name+region~`Indicator`, fill = 0) %>%
+  drop_na() %>%
+  mutate(ID = row_number()) 
+
+# Extracting meta
+gci_meta <- gci.c %>%
+  select(ID,Name,region, gdp=`GCI 4.0: Gross domestic product (PPP,$) per capita`)
+
+# Running tsne
+gci_fit <- gci.c %>%
+  select(-Name, - region) %>%
+  column_to_rownames("ID") %>%
+  scale() %>% 
+  Rtsne(dims = 2, perplexity = 15)
+
+# Grabbing coords
+gci_df <- gci_fit$Y %>% 
+  as.data.frame() %>%
+  rename(tSNE1="V1",
+         tSNE2="V2") %>%
+  mutate(ID=row_number()) %>% 
+  inner_join(gci_meta, by="ID")
+
+# Plotting
+gci_df %>%
+  ggplot(aes(x = tSNE1, 
+             y = tSNE2,
+             color = region))+
+  geom_point(aes(size = gdp), alpha = .8)+
+  scale_size(range = c(1,10))+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()+
+  geom_label_repel(data = gci_df %>% 
+                     filter(tSNE1 < 0 & tSNE1 > -3) %>%
+                     filter(tSNE2 < -0 & tSNE2 > -6) %>% 
+                     rbind(gci_df %>% filter(Name %in% c("United States","China"))),
+    aes(label = Name),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50', show.legend = FALSE) +
+  theme(legend.position="right")
+
+```
+
+## Hof
+
+```{r}
+# Data cast
+hof.c <- dcast(hof, Name+region~variable) %>% 
+  drop_na() %>%
+  mutate(ID = row_number()) 
+
+# Extracting meta
+hof_meta <- hof.c %>%
+  select(ID,Name,region)
+
+# Running tsne
+hof_fit <- hof.c %>%
+  select(-Name, - region) %>%
+  column_to_rownames("ID") %>%
+  scale() %>% 
+  Rtsne(dims = 2, perplexity = 15)
+
+# Grabbing coords
+hof_df <- hof_fit$Y %>% 
+  as.data.frame() %>%
+  rename(tSNE1="V1",
+         tSNE2="V2") %>%
+  mutate(ID=row_number()) %>% 
+  inner_join(hof_meta, by="ID")
+
+# Plotting
+hof_df %>%
+  ggplot(aes(x = tSNE1, 
+             y = tSNE2,
+             color = region))+
+  geom_point(cex = 3, alpha = .8)+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()+
+  geom_label_repel(data = hof_df %>% 
+                     filter(tSNE1 < 3 & tSNE1 > 1) %>%
+                     filter(tSNE2 < 1 & tSNE2 > -1) %>% 
+                     rbind(hof_df %>% filter(Name %in% c("Turkey","United States","China"))),
+    aes(label = Name),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50', show.legend = FALSE) +
+  theme(legend.position="bottom")
+```
+
+## All data
+
+```{r}
+# Merging all data
+all.c <- efree.c %>% 
+  select(-ID,-`Index Year`) %>% 
+  left_join(gci.c %>% select(-ID), by = c("Name","region")) %>% 
+  left_join(hof.c %>% select(-ID), by = c("Name","region")) %>% 
+  drop_na() %>%
+  mutate(ID = row_number()) 
+  #left_join(lpi.c %>% select(-ID), by = c("Name","region"))
+
+# Extracting meta
+all_meta <- all.c %>%
+  select(ID,Name,region,gdp=`GCI 4.0: Gross domestic product (PPP,$) per capita`)
+
+# Running tsne
+all_fit <- all.c %>%
+  select(-Name, - region) %>%
+  column_to_rownames("ID") %>%
+  scale() %>% 
+  Rtsne(dims = 2, perplexity = 15)
+
+# Grabbing coords
+all_df <- all_fit$Y %>% 
+  as.data.frame() %>%
+  rename(tSNE1="V1",
+         tSNE2="V2") %>%
+  mutate(ID=row_number()) %>% 
+  inner_join(all_meta, by="ID")
+
+# Plotting
+all_df %>%
+  ggplot(aes(x = tSNE1, 
+             y = tSNE2,
+             color = region))+
+  geom_point(aes(size = gdp), alpha = .8)+
+  scale_size(range = c(0.5,10))+
+  scale_color_brewer(palette = "Set2")+
+  theme_bw()+
+  geom_label_repel(data = all_df %>% 
+                     filter(tSNE1 < 0 & tSNE1 > -1) %>%
+                     filter(tSNE2 < -2 & tSNE2 > -6) %>% 
+                     rbind(all_df %>% filter(Name %in% c("United States","China"))),
+    aes(label = Name),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50', show.legend = FALSE) +
+  theme(legend.position="right")
 ```
