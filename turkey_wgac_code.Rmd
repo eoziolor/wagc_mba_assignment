@@ -464,7 +464,7 @@ hof_df %>%
   geom_label_repel(data = hof_df %>% 
                      filter(tSNE1 < 3 & tSNE1 > 1) %>%
                      filter(tSNE2 < 1 & tSNE2 > -1) %>% 
-                     rbind(hof_df %>% filter(Name %in% c("Turkey","United States","China"))),
+                     rbind(hof_df %>% filter(Name %in% c("United States","China"))),
     aes(label = Name),
                   box.padding   = 0.35, 
                   point.padding = 0.5,
